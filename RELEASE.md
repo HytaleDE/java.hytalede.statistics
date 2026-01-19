@@ -11,12 +11,7 @@
 ### Note about the Hytale server API dependency
 The default build works without any local Hytale server JARs and is what CI/Release uses.
 
-If you want to build the actual Hytale plugin entrypoint classes, install the server API JAR locally and build with:
-
-```bash
-./install-hytale-api.cmd -JarPath "/path/to/HytaleServer-parent-1.0-SNAPSHOT.jar"
-./mvnw -B -Pwith-hytale package
-```
+If you want to build the actual Hytale plugin entrypoint classes, you need the Hytale server API JAR available locally.
 
 ### Release by git tag (recommended)
 1) Bump version in `pom.xml` if needed.

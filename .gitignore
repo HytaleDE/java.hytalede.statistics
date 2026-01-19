@@ -9,5 +9,8 @@ config/*.local.json
 lib/*.jar
 agent-tools/
 src/test/
-*.ps1
-*.cmd
+# Local-only helper scripts (do not commit)
+install-hytale-api.ps1
+install-hytale-api.cmd
+install-to-hytale.ps1
+install-to-hytale.cmd

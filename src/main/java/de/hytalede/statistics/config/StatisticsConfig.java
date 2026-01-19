@@ -24,12 +24,12 @@ public record StatisticsConfig(
         endpoint = normalizeBaseApiEndpoint(endpoint);
 
         if (endpoint.getScheme() == null || endpoint.getHost() == null) {
-            throw new IllegalArgumentException("endpoint must be an absolute URL (e.g. https://hyrp.de/api/v1/)");
+            throw new IllegalArgumentException("endpoint must be an absolute URL (e.g. https://api.hytl.de/api/v1/)");
         }
 
         String path = endpoint.getPath();
         if (path == null || !path.contains("/api/v1/")) {
-            throw new IllegalArgumentException("endpoint must include /api/v1/ (e.g. https://hyrp.de/api/v1/)");
+            throw new IllegalArgumentException("endpoint must include /api/v1/ (e.g. https://api.hytl.de/api/v1/)");
         }
 
         if (bearerToken.isBlank()) {

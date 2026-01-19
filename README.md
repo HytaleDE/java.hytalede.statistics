@@ -12,26 +12,17 @@ Serverside helper that periodically POSTs the active server state to a remote HT
 ## Getting Started
 1. **Install dependencies** – Java 25 is required (recommended: Eclipse Temurin 25). Use the included Maven wrapper (`./mvnw` / `mvnw.cmd`) so you don't need Maven installed globally.
    - Make sure `java -version` shows Java 25 (or set `JAVA_HOME` to your Temurin 25 installation).
-2. **Konfigurieren** – kopiere `config/statistics.json` nach `config/statistics.local.json` (nicht committen) und trage deine Basis-API-URL ein (z.B. `https://hyrp.de/api/v1/`), deinen Token (ohne `Bearer `) und deine `vanityUrl`. POST geht an `endpoint + "server-api/telemetry"`, Ping an `endpoint + "ping"`. Timeouts und Intervall sind hardcoded.
+2. **Konfigurieren** – kopiere `config/statistics.json` nach `config/statistics.local.json` (nicht committen) und trage deine Basis-API-URL ein (z.B. `https://api.hytl.de/api/v1/`), deinen Token (ohne `Bearer `) und deine `vanityUrl`. POST geht an `endpoint + "server-api/telemetry"`, Ping an `endpoint + "ping"`. Timeouts und Intervall sind hardcoded.
 3. **Provide metrics** – implement `HytaleServerAdapter` (or a custom `ServerMetricsProvider`) so the reporter knows how to read live player counts, slot limits, version, and enabled plugins from your server runtime.
 4. **Bootstrap the plugin** – instantiate `StatisticsPlugin` with the config path and your adapter, then call `start()` during server startup. Remember to `close()` it when the server stops.
 
 ### Quickstart (clone + build)
-There are two supported build modes:
-
-- **Default (standalone)**: works out of the box after cloning and does **not** require any local Hytale server files.
+After cloning, you can build the project via:
 
 ```
 ./mvnw -B test
 ./mvnw -B package
 ```
-
-- **Hytale plugin build**: requires the **local** Hytale server API JAR (e.g. `HytaleServer.jar`) to be installed into your local Maven repository (see below), then:
-
-```
-./mvnw -B -Pwith-hytale package
-```
-
 > Note: `config/statistics.local.json` is ignored by git (`.gitignore`). It is required for running against a real endpoint, but not strictly required for compiling the project.
 
 ```java
@@ -53,7 +44,7 @@ plugin.close();
 ## Configuration Reference
 | Key | Description |
 | --- | --- |
-| `endpoint` | Basis-API-URL (z.B. `https://hyrp.de/api/v1/`). Telemetry: `endpoint + "server-api/telemetry"`, Ping: `endpoint + "ping"`. |
+| `endpoint` | Basis-API-URL (z.B. `https://api.hytl.de/api/v1/`). Telemetry: `endpoint + "server-api/telemetry"`, Ping: `endpoint + "ping"`. |
 | `bearerToken` | Token (ohne `Bearer `). Den Token bekommst du hier: `https://hytalecommunity.de/serverliste/meineserver/` |
 | `vanityUrl` | Teil nach `/server/` (Beispiel: `https://hytalecommunity.de/server/<vanityUrl>`). Erlaubt: `a-z0-9`, Länge 3–32. Wird `trim().toLowerCase()` gesendet. |
 | `interval` | Standard: 5 Minuten. Für Tests kann das Intervall per `-Dstatistics.intervalSeconds=10` überschrieben werden. |
@@ -65,22 +56,6 @@ plugin.close();
 ```
 
 Artifacts are generated under `target/` (JAR + sources JAR).
-
-### Building the Hytale plugin (no public Maven repo yet)
-The repository contains optional Hytale runtime classes (under `de.hytalede.statistics.hytale.*`) which depend on the
-Hytale server API JAR. Since there is currently no public Maven repository for it, the default build excludes those
-classes and still builds the standalone runner.
-
-To build the actual Hytale plugin, first install the server API JAR into your local Maven repository, then build with
-the `with-hytale` profile:
-
-```
-./install-hytale-api.cmd -JarPath "C:\path\to\HytaleServer.jar"
-./mvnw -B -Pwith-hytale package
-```
-
-Where do you get the Hytale server API JAR (e.g. `HytaleServer.jar` / `HytaleServer-parent-*.jar`)?
-- From your **local Hytale server installation / SDK** (server files). It is not available on Maven Central.
 
 ### Run (standalone server runner)
 The produced JAR has a `Main-Class` and can be started directly:
