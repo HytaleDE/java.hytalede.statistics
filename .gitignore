@@ -1,0 +1,13 @@
+target/
+bin/
+build/
+out/
+.idea/
+*.iml
+*.log
+config/*.local.json
+lib/*.jar
+agent-tools/
+src/test/
+*.ps1
+*.cmd
