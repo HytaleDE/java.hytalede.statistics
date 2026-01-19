@@ -12,7 +12,7 @@ Serverside helper that periodically POSTs the active server state to a remote HT
 ## Getting Started
 1. **Install dependencies** – Java 25 is required (recommended: Eclipse Temurin 25). Use the included Maven wrapper (`./mvnw` / `mvnw.cmd`) so you don't need Maven installed globally.
    - Make sure `java -version` shows Java 25 (or set `JAVA_HOME` to your Temurin 25 installation).
-2. **Konfigurieren** – kopiere `config/statistics.json` nach `config/statistics.local.json` (nicht committen) und trage deine Basis-API-URL ein (z.B. `https://api.hytl.de/api/v1/`), deinen Token (ohne `Bearer `) und deine `vanityUrl`. POST geht an `endpoint + "server-api/telemetry"`, Ping an `endpoint + "ping"`. Timeouts und Intervall sind hardcoded.
+2. **Konfigurieren** – kopiere `config/statistics.json` und trage deine Basis-API-URL ein (z.B. `https://api.hytl.de/api/v1/`), deinen Token (ohne `Bearer `) und deine `vanityUrl`. POST geht an `endpoint + "server-api/telemetry"`, Ping an `endpoint + "ping"`. Timeouts und Intervall sind hardcoded.
 3. **Provide metrics** – implement `HytaleServerAdapter` (or a custom `ServerMetricsProvider`) so the reporter knows how to read live player counts, slot limits, version, and enabled plugins from your server runtime.
 4. **Bootstrap the plugin** – instantiate `StatisticsPlugin` with the config path and your adapter, then call `start()` during server startup. Remember to `close()` it when the server stops.
 
@@ -23,23 +23,6 @@ After cloning, you can build the project via:
 ./mvnw -B test
 ./mvnw -B package
 ```
-> Note: `config/statistics.local.json` is ignored by git (`.gitignore`). It is required for running against a real endpoint, but not strictly required for compiling the project.
-
-```java
-Path configPath = Path.of("config", "statistics.local.json");
-
-HytaleServerAdapter adapter = FunctionalHytaleServerAdapter.builder()
-        .onlinePlayers(() -> hytaleServer.getPlayers().size())
-        .maxPlayers(hytaleServer::getMaxPlayers)
-        .version(hytaleServer::getVersion)
-        .plugins(() -> hytaleServer.getPluginManager().getEnabledPluginNames())
-        .build();
-
-StatisticsPlugin plugin = new StatisticsPlugin(configPath, adapter);
-plugin.start();
-// ... later on shutdown
-plugin.close();
-```
 
 ## Configuration Reference
 | Key | Description |
@@ -47,7 +30,6 @@ plugin.close();
 | `endpoint` | Basis-API-URL (z.B. `https://api.hytl.de/api/v1/`). Telemetry: `endpoint + "server-api/telemetry"`, Ping: `endpoint + "ping"`. |
 | `bearerToken` | Token (ohne `Bearer `). Den Token bekommst du hier: `https://hytalecommunity.de/serverliste/meineserver/` |
 | `vanityUrl` | Teil nach `/server/` (Beispiel: `https://hytalecommunity.de/server/<vanityUrl>`). Erlaubt: `a-z0-9`, Länge 3–32. Wird `trim().toLowerCase()` gesendet. |
-| `interval` | Standard: 5 Minuten. Für Tests kann das Intervall per `-Dstatistics.intervalSeconds=10` überschrieben werden. |
 
 ## Build + Run (no IDE required)
 ### Build
@@ -64,28 +46,6 @@ The produced JAR has a `Main-Class` and can be started directly:
 java -jar target/hytalede-statistics-plugin-0.1.0.jar config/statistics.local.json
 ```
 
-## GitHub Releases
-This repository ships with GitHub Actions workflows:
-
-- **CI** runs `./mvnw -B test` on every push and pull request.
-- **Release** runs on tags starting with `v` (e.g. `v0.1.0`), builds the shaded JAR and attaches it to a GitHub Release.
-
-### Release per Command (git tag)
-Create a release by tagging and pushing:
-
-```
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-### Release per Command (GitHub CLI)
-If you have GitHub CLI installed (`gh`), you can also do:
-
-```
-git tag v0.1.0
-git push origin v0.1.0
-gh release create v0.1.0 --generate-notes
-```
 
 ### Run continuously (scheduler, keep process running)
 ```
@@ -124,5 +84,3 @@ If you publish via **GitHub Packages**, the Maven repository URL typically looks
 ```
 
 The scheduler always keeps running even if previous attempts fail; failures only log a warning when the API host cannot be reached.
-
-> Note: Never commit real bearer tokens. Use `config/*.local.json` for local secrets.
