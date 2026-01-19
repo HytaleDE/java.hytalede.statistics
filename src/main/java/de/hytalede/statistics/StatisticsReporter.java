@@ -123,14 +123,19 @@ public final class StatisticsReporter implements Closeable {
         long latencyMs = PingLatency.measureMedianMillis(LOGGER, httpClient, config.pingEndpoint(), config.readTimeout(), PING_ATTEMPTS);
         
         StatisticsSnapshot snapshot = metricsProvider.snapshot();
+        boolean sendPlayers = config.sendPlayerList();
+        boolean sendPlugins = config.sendPluginList();
         StatisticsPayload payload = new StatisticsPayload(
             config.vanityUrl(),
+            snapshot.version(),
             null,
             null,
             snapshot.players(),
             snapshot.slots(),
             null,
             latencyMs,
+            sendPlayers ? snapshot.playerList() : null,
+            sendPlugins ? snapshot.pluginList() : null,
             null,
             null,
             null

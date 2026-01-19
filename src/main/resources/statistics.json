@@ -1,5 +1,7 @@
 {
   "endpoint": "https://api.hytl.de/api/v1/",
   "bearerToken": "REPLACE_WITH_TOKEN",
-  "vanityUrl": "myserver123"
+  "vanityUrl": "myserver123",
+  "sendPlayerList": false,
+  "sendPluginList": false
 }

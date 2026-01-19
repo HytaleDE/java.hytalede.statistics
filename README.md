@@ -43,7 +43,7 @@ Artifacts are generated under `target/` (JAR + sources JAR).
 The produced JAR has a `Main-Class` and can be started directly:
 
 ```
-java -jar target/hytalede-statistics-plugin-0.1.0.jar config/statistics.local.json
+java -jar target/hytalede-statistics-plugin-0.2.0.jar config/statistics.local.json
 ```
 
 
@@ -56,10 +56,15 @@ java -jar target/hytalede-statistics-plugin-0.1.0.jar config/statistics.local.js
 ```json
 {
   "vanityUrl": "myserver123",
+  "version": "1.0.0",
   "playersOnline": 0,
   "maxPlayers": 0,
   "latencyMs": 0
 }
 ```
+
+Optional (enabled via config):
+- `sendPlayerList`: sends `"players": [{"uuid": "...", "name": "...", "joined": "2026-01-19T13:45:00Z"}]`
+- `sendPluginList`: sends `"plugins": [{"name": "ExamplePlugin", "version": "1.2.3"}]`
 
 The scheduler always keeps running even if previous attempts fail; failures only log a warning when the API host cannot be reached.

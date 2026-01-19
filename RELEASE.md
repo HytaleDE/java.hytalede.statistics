@@ -19,8 +19,8 @@ If you want to build the actual Hytale plugin entrypoint classes, you need the H
 3) Tag and push:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 This triggers the GitHub Actions workflow `Release` which builds the shaded JAR and uploads it to the GitHub Release.
@@ -29,8 +29,8 @@ This triggers the GitHub Actions workflow `Release` which builds the shaded JAR 
 If you use GitHub CLI (`gh`):
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
-gh release create v0.1.0 --generate-notes
+git tag v0.2.0
+git push origin v0.2.0
+gh release create v0.2.0 --generate-notes
 ```
 

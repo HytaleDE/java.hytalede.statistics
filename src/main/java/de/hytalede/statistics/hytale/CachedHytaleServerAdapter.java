@@ -1,5 +1,8 @@
 package de.hytalede.statistics.hytale;
 
+import de.hytalede.statistics.model.PlayerInfo;
+import de.hytalede.statistics.model.PluginInfo;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -17,6 +20,8 @@ public final class CachedHytaleServerAdapter implements HytaleServerAdapter {
 	private final AtomicInteger maxPlayers = new AtomicInteger(0);
 	private final AtomicReference<String> serverVersion = new AtomicReference<>("unknown");
 	private final AtomicReference<List<String>> enabledPlugins = new AtomicReference<>(List.of());
+	private final AtomicReference<List<PlayerInfo>> players = new AtomicReference<>(List.of());
+	private final AtomicReference<List<PluginInfo>> pluginDetails = new AtomicReference<>(List.of());
 
 	public void setOnlinePlayers(int value) {
 		onlinePlayers.set(Math.max(0, value));
@@ -33,6 +38,16 @@ public final class CachedHytaleServerAdapter implements HytaleServerAdapter {
 
 	public void setEnabledPlugins(List<String> plugins) {
 		enabledPlugins.set(plugins == null ? List.of() : List.copyOf(plugins));
+	}
+
+	public void setPlayers(List<PlayerInfo> value) {
+		players.set(value == null ? List.of() : List.copyOf(value));
+	}
+
+	public void setPluginDetails(List<PluginInfo> value) {
+		pluginDetails.set(value == null ? List.of() : List.copyOf(value));
+		// Keep string list in sync for callers that only need names.
+		setEnabledPlugins(value == null ? List.of() : value.stream().map(PluginInfo::name).toList());
 	}
 
 	@Override
@@ -53,6 +68,16 @@ public final class CachedHytaleServerAdapter implements HytaleServerAdapter {
 	@Override
 	public List<String> getEnabledPlugins() {
 		return enabledPlugins.get();
+	}
+
+	@Override
+	public List<PlayerInfo> getOnlinePlayers() {
+		return players.get();
+	}
+
+	@Override
+	public List<PluginInfo> getEnabledPluginsDetailed() {
+		return pluginDetails.get();
 	}
 }
 

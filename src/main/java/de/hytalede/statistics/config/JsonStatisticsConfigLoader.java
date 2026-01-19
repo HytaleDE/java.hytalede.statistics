@@ -16,7 +16,9 @@ import java.nio.file.Path;
  * {
  *   "endpoint": "https://example.com/api/v1/",
  *   "bearerToken": "REPLACE_WITH_TOKEN",
- *   "vanityUrl": "myserver123"
+ *   "vanityUrl": "myserver123",
+ *   "sendPlayerList": false,
+ *   "sendPluginList": false
  * }
  * </pre>
  */
@@ -52,6 +54,8 @@ public final class JsonStatisticsConfigLoader {
         private String pingEndpoint;
         private String bearerToken;
         private String vanityUrl;
+        private Boolean sendPlayerList;
+        private Boolean sendPluginList;
         // Backwards compatibility: timeouts used to be configurable. They are now hardcoded.
         @SuppressWarnings("unused")
         private Object timeouts;
@@ -88,6 +92,22 @@ public final class JsonStatisticsConfigLoader {
             this.vanityUrl = vanityUrl;
         }
 
+        public Boolean getSendPlayerList() {
+            return sendPlayerList;
+        }
+
+        public void setSendPlayerList(Boolean sendPlayerList) {
+            this.sendPlayerList = sendPlayerList;
+        }
+
+        public Boolean getSendPluginList() {
+            return sendPluginList;
+        }
+
+        public void setSendPluginList(Boolean sendPluginList) {
+            this.sendPluginList = sendPluginList;
+        }
+
         public Object getTimeouts() {
             return timeouts;
         }
@@ -100,7 +120,9 @@ public final class JsonStatisticsConfigLoader {
             URI endpointUri = URI.create(requireNonBlank(endpoint, "endpoint"));
             String token = requireNonBlank(bearerToken, "bearerToken");
             String vanity = requireNonBlank(vanityUrl, "vanityUrl");
-            return new StatisticsConfig(endpointUri, token, vanity);
+            boolean players = sendPlayerList != null && sendPlayerList;
+            boolean plugins = sendPluginList != null && sendPluginList;
+            return new StatisticsConfig(endpointUri, token, vanity, players, plugins);
         }
 
         private static String requireNonBlank(String value, String fieldName) {

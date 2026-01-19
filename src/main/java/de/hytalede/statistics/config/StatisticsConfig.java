@@ -10,7 +10,9 @@ import java.util.Objects;
 public record StatisticsConfig(
         URI endpoint,
         String bearerToken,
-        String vanityUrl
+        String vanityUrl,
+        boolean sendPlayerList,
+        boolean sendPluginList
 ) {
     public static final Duration FIXED_INTERVAL = Duration.ofMinutes(5);
     public static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
@@ -40,6 +42,10 @@ public record StatisticsConfig(
         if (!vanityUrl.matches("^[a-z0-9]{3,32}$")) {
             throw new IllegalArgumentException("vanityUrl must match ^[a-z0-9]{3,32}$");
         }
+    }
+
+    public StatisticsConfig(URI endpoint, String bearerToken, String vanityUrl) {
+        this(endpoint, bearerToken, vanityUrl, false, false);
     }
 
     public Duration interval() {

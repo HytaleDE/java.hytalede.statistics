@@ -3,6 +3,9 @@ package de.hytalede.statistics;
 import java.util.List;
 import java.util.Objects;
 
+import de.hytalede.statistics.model.PlayerInfo;
+import de.hytalede.statistics.model.PluginInfo;
+
 /**
  * Provides live server metrics that will be reported to the remote API.
  */
@@ -16,7 +19,13 @@ public interface ServerMetricsProvider {
     /**
      * Immutable carrier for runtime metrics.
      */
-    record StatisticsSnapshot(int players, int slots, String version, List<String> plugins) {
+    record StatisticsSnapshot(
+            int players,
+            int slots,
+            String version,
+            List<PlayerInfo> playerList,
+            List<PluginInfo> pluginList
+    ) {
         public StatisticsSnapshot {
             if (players < 0) {
                 throw new IllegalArgumentException("players must be >= 0");
@@ -25,7 +34,8 @@ public interface ServerMetricsProvider {
                 throw new IllegalArgumentException("slots must be > 0");
             }
             version = Objects.requireNonNullElse(version, "unknown");
-            plugins = List.copyOf(Objects.requireNonNull(plugins, "plugins"));
+            playerList = List.copyOf(Objects.requireNonNull(playerList, "playerList"));
+            pluginList = List.copyOf(Objects.requireNonNull(pluginList, "pluginList"));
         }
     }
 }

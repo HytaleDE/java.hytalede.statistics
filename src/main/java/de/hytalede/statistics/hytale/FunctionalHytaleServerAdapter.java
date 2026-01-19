@@ -1,5 +1,8 @@
 package de.hytalede.statistics.hytale;
 
+import de.hytalede.statistics.model.PlayerInfo;
+import de.hytalede.statistics.model.PluginInfo;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.IntSupplier;
@@ -15,12 +18,16 @@ public final class FunctionalHytaleServerAdapter implements HytaleServerAdapter 
     private final IntSupplier maxPlayers;
     private final Supplier<String> version;
     private final Supplier<List<String>> plugins;
+    private final Supplier<List<PlayerInfo>> players;
+    private final Supplier<List<PluginInfo>> pluginDetails;
 
     private FunctionalHytaleServerAdapter(Builder builder) {
         this.onlinePlayers = builder.onlinePlayers;
         this.maxPlayers = builder.maxPlayers;
         this.version = builder.version;
         this.plugins = builder.plugins;
+        this.players = builder.players;
+        this.pluginDetails = builder.pluginDetails;
     }
 
     @Override
@@ -43,6 +50,20 @@ public final class FunctionalHytaleServerAdapter implements HytaleServerAdapter 
         return plugins.get();
     }
 
+    @Override
+    public List<PlayerInfo> getOnlinePlayers() {
+        return players.get();
+    }
+
+    @Override
+    public List<PluginInfo> getEnabledPluginsDetailed() {
+        List<PluginInfo> provided = pluginDetails.get();
+        if (provided != null && !provided.isEmpty()) {
+            return provided;
+        }
+        return HytaleServerAdapter.super.getEnabledPluginsDetailed();
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -52,6 +73,8 @@ public final class FunctionalHytaleServerAdapter implements HytaleServerAdapter 
         private IntSupplier maxPlayers;
         private Supplier<String> version = () -> "unknown";
         private Supplier<List<String>> plugins = List::of;
+        private Supplier<List<PlayerInfo>> players = List::of;
+        private Supplier<List<PluginInfo>> pluginDetails = List::of;
 
         private Builder() {
         }
@@ -73,6 +96,16 @@ public final class FunctionalHytaleServerAdapter implements HytaleServerAdapter 
 
         public Builder plugins(Supplier<List<String>> supplier) {
             this.plugins = Objects.requireNonNull(supplier, "plugins");
+            return this;
+        }
+
+        public Builder players(Supplier<List<PlayerInfo>> supplier) {
+            this.players = Objects.requireNonNull(supplier, "players");
+            return this;
+        }
+
+        public Builder pluginDetails(Supplier<List<PluginInfo>> supplier) {
+            this.pluginDetails = Objects.requireNonNull(supplier, "pluginDetails");
             return this;
         }
 

@@ -1,6 +1,8 @@
 package de.hytalede.statistics.hytale;
 
 import de.hytalede.statistics.ServerMetricsProvider;
+import de.hytalede.statistics.model.PlayerInfo;
+import de.hytalede.statistics.model.PluginInfo;
 
 import java.util.List;
 import java.util.Objects;
@@ -35,18 +37,34 @@ public final class HytaleServerMetricsProvider implements ServerMetricsProvider 
                 players,
                 slots,
                 adapter.getServerVersion(),
-                sanitizePluginNames(adapter.getEnabledPlugins())
+                sanitizePlayers(adapter.getOnlinePlayers()),
+                sanitizePlugins(adapter.getEnabledPluginsDetailed())
         );
     }
 
-    private static List<String> sanitizePluginNames(List<String> plugins) {
+    private static List<PlayerInfo> sanitizePlayers(List<PlayerInfo> players) {
+        if (players == null || players.isEmpty()) {
+            return List.of();
+        }
+        // Keep stable order as provided; just filter obvious invalid entries.
+        return players.stream()
+                .filter(Objects::nonNull)
+                .filter(p -> p.uuid() != null && !p.uuid().isBlank())
+                .filter(p -> p.name() != null && !p.name().isBlank())
+                .toList();
+    }
+
+    private static List<PluginInfo> sanitizePlugins(List<PluginInfo> plugins) {
         if (plugins == null || plugins.isEmpty()) {
             return List.of();
         }
         return plugins.stream()
                 .filter(Objects::nonNull)
-                .map(String::trim)
-                .filter(name -> !name.isEmpty())
+                .map(p -> new PluginInfo(
+                        p.name() == null ? "" : p.name().trim(),
+                        p.version() == null ? "unknown" : p.version().trim()
+                ))
+                .filter(p -> !p.name().isEmpty())
                 .distinct()
                 .toList();
     }

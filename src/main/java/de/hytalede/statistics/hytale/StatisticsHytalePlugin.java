@@ -11,14 +11,19 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import de.hytalede.statistics.StatisticsPlugin;
 import de.hytalede.statistics.hytale.commands.StatsCommand;
 import de.hytalede.statistics.config.JsonStatisticsConfigLoader;
+import de.hytalede.statistics.config.StatisticsConfig;
+import de.hytalede.statistics.model.PlayerInfo;
+import de.hytalede.statistics.model.PluginInfo;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -44,6 +49,8 @@ public final class StatisticsHytalePlugin extends JavaPlugin {
 	private CachedHytaleServerAdapter cachedAdapter;
 	private ScheduledFuture<Void> cacheTask;
 	private ScheduledFuture<Void> delayedStartTask;
+	private boolean sendPlayerList;
+	private boolean sendPluginList;
 
 	public StatisticsHytalePlugin(JavaPluginInit init) {
 		super(Objects.requireNonNull(init, "init"));
@@ -59,7 +66,9 @@ public final class StatisticsHytalePlugin extends JavaPlugin {
 
 		// Validate config early so a broken JSON doesn't crash later in start(), and the log points to the real cause.
 		try {
-			new JsonStatisticsConfigLoader(configPath).load();
+			StatisticsConfig config = new JsonStatisticsConfigLoader(configPath).load();
+			this.sendPlayerList = config.sendPlayerList();
+			this.sendPluginList = config.sendPluginList();
 		} catch (Exception e) {
 			getLogger().at(Level.SEVERE).withCause(e).log(
 					"Invalid statistics config (%s). Required fields: endpoint, bearerToken, vanityUrl. Plugin will not start until fixed.",
@@ -156,12 +165,21 @@ public final class StatisticsHytalePlugin extends JavaPlugin {
 						String v = ManifestUtil.getImplementationVersion();
 						adapter.setServerVersion(v != null && !v.isBlank() ? v : "unknown");
 
-						List<String> plugins = PluginManager.get().getPlugins().stream()
-								.map(PluginBase::getIdentifier)
-								.map(Object::toString)
-								.sorted(String.CASE_INSENSITIVE_ORDER)
-								.toList();
-						adapter.setEnabledPlugins(plugins);
+						if (sendPluginList) {
+							adapter.setPluginDetails(extractPluginDetails());
+						} else {
+							// Keep lightweight names list updated even if detailed list is disabled.
+							List<String> plugins = PluginManager.get().getPlugins().stream()
+									.map(PluginBase::getIdentifier)
+									.map(Object::toString)
+									.sorted(String.CASE_INSENSITIVE_ORDER)
+									.toList();
+							adapter.setEnabledPlugins(plugins);
+						}
+
+						if (sendPlayerList) {
+							adapter.setPlayers(extractPlayers(u));
+						}
 					} catch (Throwable t) {
 						getLogger().at(Level.WARNING).withCause(t).log("Failed to update statistics cache");
 					}
@@ -204,5 +222,112 @@ public final class StatisticsHytalePlugin extends JavaPlugin {
 
 	public StatisticsPlugin getCore() {
 		return core;
+	}
+
+	private static List<PluginInfo> extractPluginDetails() {
+		return PluginManager.get().getPlugins().stream()
+				.map(StatisticsHytalePlugin::toPluginInfo)
+				.filter(Objects::nonNull)
+				.sorted((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(a.name(), b.name()))
+				.toList();
+	}
+
+	private static PluginInfo toPluginInfo(PluginBase plugin) {
+		if (plugin == null) {
+			return null;
+		}
+		String name = String.valueOf(plugin.getIdentifier());
+		String version = tryInvokeString(plugin, "getVersion");
+		if (version == null) {
+			version = tryInvokeString(plugin, "getPluginVersion");
+		}
+		if (version == null) {
+			version = tryInvokeString(plugin, "getImplementationVersion");
+		}
+		if (version == null || version.isBlank()) {
+			version = "unknown";
+		}
+		return new PluginInfo(name, version.trim());
+	}
+
+	private static List<PlayerInfo> extractPlayers(Universe universe) {
+		if (universe == null) {
+			return List.of();
+		}
+
+		// Use reflection so we don't rely on a specific API surface; if it doesn't exist, we just return empty.
+		Object playersObj = tryInvoke(universe, "getPlayers");
+		if (!(playersObj instanceof Iterable<?> iterable)) {
+			playersObj = tryInvoke(universe, "getOnlinePlayers");
+			if (!(playersObj instanceof Iterable<?> iterable2)) {
+				return List.of();
+			}
+			iterable = iterable2;
+		}
+
+		return streamIterable(iterable)
+				.map(StatisticsHytalePlugin::toPlayerInfo)
+				.filter(Objects::nonNull)
+				.toList();
+	}
+
+	private static PlayerInfo toPlayerInfo(Object player) {
+		if (player == null) {
+			return null;
+		}
+
+		String uuid = null;
+		Object id = tryInvoke(player, "getUuid");
+		if (id == null) {
+			id = tryInvoke(player, "getUniqueId");
+		}
+		if (id instanceof UUID u) {
+			uuid = u.toString();
+		} else if (id != null) {
+			uuid = id.toString();
+		}
+
+		String name = tryInvokeString(player, "getName");
+		if (name == null) {
+			name = tryInvokeString(player, "getUsername");
+		}
+
+		// joined timestamp: best-effort ISO-8601 UTC string
+		String joined = null;
+		Object joinedObj = tryInvoke(player, "getJoined");
+		if (joinedObj == null) {
+			joinedObj = tryInvoke(player, "getJoinedAt");
+		}
+		if (joinedObj != null) {
+			joined = joinedObj.toString();
+		}
+
+		if (uuid == null || uuid.isBlank() || name == null || name.isBlank()) {
+			return null;
+		}
+		return new PlayerInfo(uuid, name, joined);
+	}
+
+	private static Object tryInvoke(Object target, String methodName) {
+		try {
+			Method m = target.getClass().getMethod(methodName);
+			m.setAccessible(true);
+			return m.invoke(target);
+		} catch (Exception ignored) {
+			return null;
+		}
+	}
+
+	private static String tryInvokeString(Object target, String methodName) {
+		Object v = tryInvoke(target, methodName);
+		if (v == null) {
+			return null;
+		}
+		String s = v.toString();
+		return s == null || s.isBlank() ? null : s;
+	}
+
+	private static java.util.stream.Stream<Object> streamIterable(Iterable<?> iterable) {
+		return java.util.stream.StreamSupport.stream(iterable.spliterator(), false).map(o -> (Object) o);
 	}
 }
