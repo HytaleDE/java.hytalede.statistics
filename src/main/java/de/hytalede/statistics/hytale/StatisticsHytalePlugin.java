@@ -256,13 +256,19 @@ public final class StatisticsHytalePlugin extends JavaPlugin {
 		}
 
 		// Use reflection so we don't rely on a specific API surface; if it doesn't exist, we just return empty.
+		Iterable<?> iterable = null;
 		Object playersObj = tryInvoke(universe, "getPlayers");
-		if (!(playersObj instanceof Iterable<?> iterable)) {
+		if (playersObj instanceof Iterable<?> it) {
+			iterable = it;
+		} else {
 			playersObj = tryInvoke(universe, "getOnlinePlayers");
-			if (!(playersObj instanceof Iterable<?> iterable2)) {
-				return List.of();
+			if (playersObj instanceof Iterable<?> it2) {
+				iterable = it2;
 			}
-			iterable = iterable2;
+		}
+
+		if (iterable == null) {
+			return List.of();
 		}
 
 		return streamIterable(iterable)

@@ -25,7 +25,7 @@ public final class StatisticsSendOnceMain {
     }
 
     public static void main(String[] args) {
-        String configPathStr = args.length > 0 ? args[0] : "config/statistics.local.json";
+        String configPathStr = args.length > 0 ? args[0] : "config/statistics.json";
         Path configPath = Paths.get(configPathStr);
 
         try {

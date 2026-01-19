@@ -63,6 +63,17 @@
                 <activeByDefault>true</activeByDefault>
             </activation>
             <build>
+                <!-- Make it obvious this is NOT the Hytale mod jar -->
+                <finalName>${project.artifactId}-standalone-${project.version}</finalName>
+                <resources>
+                    <resource>
+                        <directory>src/main/resources</directory>
+                        <!-- Exclude the Hytale mod manifest so this jar cannot be loaded as a server mod by accident -->
+                        <excludes>
+                            <exclude>manifest.json</exclude>
+                        </excludes>
+                    </resource>
+                </resources>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -92,6 +103,8 @@
                 </dependency>
             </dependencies>
             <build>
+                <!-- The actual mod jar (contains manifest.json + StatisticsHytalePlugin) -->
+                <finalName>${project.artifactId}-${project.version}</finalName>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
