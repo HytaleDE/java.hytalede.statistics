@@ -52,27 +52,6 @@ java -jar target/hytalede-statistics-plugin-0.1.0.jar config/statistics.local.js
 ./mvnw -q exec:java@server -Dexec.args="config/statistics.local.json"
 ```
 
-## Maven Coordinates / "Maven URL"
-The project currently builds a local JAR via Maven.
-
-If you want to consume it as a dependency **without publishing** yet:
-
-1) Install into your local Maven repo:
-
-```
-./mvnw -B install
-```
-
-2) Use these coordinates:
-- `groupId`: `de.hytalede`
-- `artifactId`: `hytalede-statistics-plugin`
-- `version`: `0.1.0`
-
-If you publish via **GitHub Packages**, the Maven repository URL typically looks like:
-- `https://maven.pkg.github.com/HytaleDE/java.hytalede.statistics`
-
-(Replace org/repo if yours differs.)
-
 ## Payload Structure
 ```json
 {
