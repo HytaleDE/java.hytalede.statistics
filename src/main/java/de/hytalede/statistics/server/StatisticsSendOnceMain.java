@@ -3,6 +3,7 @@ package de.hytalede.statistics.server;
 import de.hytalede.statistics.StatisticsReporter;
 import de.hytalede.statistics.config.JsonStatisticsConfigLoader;
 import de.hytalede.statistics.config.StatisticsConfig;
+import de.hytalede.statistics.config.StatisticsConfigBootstrap;
 import de.hytalede.statistics.hytale.FunctionalHytaleServerAdapter;
 import de.hytalede.statistics.hytale.HytaleServerAdapter;
 import de.hytalede.statistics.hytale.HytaleServerMetricsProvider;
@@ -28,6 +29,10 @@ public final class StatisticsSendOnceMain {
         Path configPath = Paths.get(configPathStr);
 
         try {
+            if (!StatisticsConfigBootstrap.ensureExists(configPath, LOGGER)) {
+                System.exit(1);
+            }
+
             StatisticsConfig config = new JsonStatisticsConfigLoader(configPath).load();
 
             Random random = new Random();
@@ -48,6 +53,7 @@ public final class StatisticsSendOnceMain {
             }
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, "Send-once failed (config=" + configPath.toAbsolutePath() + ")", ex);
+            LOGGER.severe("Hint: Ensure the JSON config exists and contains endpoint (with /api/v1/), bearerToken and vanityUrl.");
             System.exit(1);
         }
     }

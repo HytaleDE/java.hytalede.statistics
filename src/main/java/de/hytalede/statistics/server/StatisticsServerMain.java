@@ -1,6 +1,8 @@
 package de.hytalede.statistics.server;
 
 import de.hytalede.statistics.StatisticsPlugin;
+import de.hytalede.statistics.config.JsonStatisticsConfigLoader;
+import de.hytalede.statistics.config.StatisticsConfigBootstrap;
 import de.hytalede.statistics.hytale.FunctionalHytaleServerAdapter;
 import de.hytalede.statistics.hytale.HytaleServerAdapter;
 
@@ -27,6 +29,20 @@ public final class StatisticsServerMain {
         Path configPath = Paths.get(configPathStr);
 
         LOGGER.info("Starting HytaleDE Statistics Plugin with config: " + configPath);
+
+        // Create template config if missing, so first-time users can start quickly.
+        if (!StatisticsConfigBootstrap.ensureExists(configPath, LOGGER)) {
+            System.exit(1);
+        }
+
+        // Validate config early and print a clean, actionable message on failure.
+        try {
+            new JsonStatisticsConfigLoader(configPath).load();
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, "Invalid statistics config: " + configPath.toAbsolutePath(), ex);
+            LOGGER.severe("Fix the JSON config (endpoint must include /api/v1/, bearerToken must be present, vanityUrl must match ^[a-z0-9]{3,32}$) and restart.");
+            System.exit(1);
+        }
 
         // Register shutdown hook for graceful termination
         StatisticsPlugin plugin = createPluginWithTestAdapter(configPath);
