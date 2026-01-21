@@ -65,6 +65,7 @@ public final class HytaleServerMetricsProvider implements ServerMetricsProvider 
                         p.version() == null ? "unknown" : p.version().trim()
                 ))
                 .filter(p -> !p.name().isEmpty())
+                .filter(p -> !HytaleServerAdapter.isIgnoredPluginName(p.name()))
                 .distinct()
                 .toList();
     }

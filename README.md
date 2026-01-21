@@ -43,7 +43,7 @@ Artifacts are generated under `target/` (JAR + sources JAR).
 The produced JAR has a `Main-Class` and can be started directly:
 
 ```
-java -jar target/hytalede-statistics-plugin-0.2.0.jar config/statistics.local.json
+java -jar target/hytalede-statistics-plugin-1.0.0.jar config/statistics.local.json
 ```
 
 

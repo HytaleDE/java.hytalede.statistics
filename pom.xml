@@ -6,7 +6,7 @@
 
     <groupId>de.hytalede</groupId>
     <artifactId>hytalede-statistics-plugin</artifactId>
-    <version>0.2.0</version>
+    <version>1.0.0</version>
     <name>HytaleDE Statistics Plugin</name>
     <description>Serverside helper that periodically POSTs the active server state to a remote HTTPS endpoint.</description>
 

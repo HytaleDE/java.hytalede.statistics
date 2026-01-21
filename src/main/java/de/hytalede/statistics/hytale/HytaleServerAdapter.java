@@ -4,6 +4,7 @@ import de.hytalede.statistics.model.PlayerInfo;
 import de.hytalede.statistics.model.PluginInfo;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Minimal abstraction over the Hytale server runtime so metrics can be collected without
@@ -38,8 +39,17 @@ public interface HytaleServerAdapter {
                 .filter(p -> p != null && !p.isBlank())
                 .map(String::trim)
                 .filter(p -> !p.isEmpty())
+                .filter(p -> !isIgnoredPluginName(p))
                 .distinct()
                 .map(name -> new PluginInfo(name, "unknown"))
                 .toList();
+    }
+
+    static boolean isIgnoredPluginName(String name) {
+        if (name == null) {
+            return true;
+        }
+        String normalized = name.trim().toLowerCase(Locale.ROOT);
+        return normalized.startsWith("hytale:") || normalized.startsWith("hytale.");
     }
 }

@@ -15,15 +15,22 @@ import de.hytalede.statistics.config.StatisticsConfig;
 import de.hytalede.statistics.model.PlayerInfo;
 import de.hytalede.statistics.model.PluginInfo;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -43,7 +50,10 @@ public final class StatisticsHytalePlugin extends JavaPlugin {
 	private static final String DEFAULT_CONFIG_RESOURCE = "/statistics.json";
 	private static final String CONFIG_FILENAME = "statistics.json";
 	private static final long CACHE_REFRESH_SECONDS = 2;
-	private static final long STARTUP_DELAY_SECONDS = 30;
+	// Delay first start a bit so we report stable values (maxPlayers/plugins) after the server finished booting.
+	private static final long STARTUP_DELAY_SECONDS = 15;
+	private static final ObjectMapper JSON = new ObjectMapper();
+	private static final Map<String, String> PLUGIN_VERSION_BY_JAR = new ConcurrentHashMap<>();
 
 	private StatisticsPlugin core;
 	private CachedHytaleServerAdapter cachedAdapter;
@@ -51,6 +61,11 @@ public final class StatisticsHytalePlugin extends JavaPlugin {
 	private ScheduledFuture<Void> delayedStartTask;
 	private boolean sendPlayerList;
 	private boolean sendPluginList;
+	/**
+	 * Best-effort "joined" timestamp cache. If the Hytale API doesn't expose a join time, we fall back
+	 * to the moment we first observe a player in the online list.
+	 */
+	private final Map<String, String> joinedByUuid = new ConcurrentHashMap<>();
 
 	public StatisticsHytalePlugin(JavaPluginInit init) {
 		super(Objects.requireNonNull(init, "init"));
@@ -178,7 +193,7 @@ public final class StatisticsHytalePlugin extends JavaPlugin {
 						}
 
 						if (sendPlayerList) {
-							adapter.setPlayers(extractPlayers(u));
+							adapter.setPlayers(extractPlayers(u, joinedByUuid));
 						}
 					} catch (Throwable t) {
 						getLogger().at(Level.WARNING).withCause(t).log("Failed to update statistics cache");
@@ -236,7 +251,26 @@ public final class StatisticsHytalePlugin extends JavaPlugin {
 		if (plugin == null) {
 			return null;
 		}
-		String name = String.valueOf(plugin.getIdentifier());
+		String technicalId = String.valueOf(plugin.getIdentifier());
+		if (HytaleServerAdapter.isIgnoredPluginName(technicalId)) {
+			return null;
+		}
+
+		// Prefer a user-facing name if the API provides one, otherwise fall back to the technical identifier.
+		String displayName = tryInvokeString(plugin, "getDisplayName");
+		if (displayName == null) {
+			displayName = tryInvokeString(plugin, "getName");
+		}
+		if (displayName == null) {
+			displayName = tryInvokeString(plugin, "getTitle");
+		}
+		String name = (displayName == null || displayName.isBlank()) ? technicalId : displayName.trim();
+
+		String version = resolvePluginVersion(plugin);
+		return new PluginInfo(name, version);
+	}
+
+	private static String resolvePluginVersion(PluginBase plugin) {
 		String version = tryInvokeString(plugin, "getVersion");
 		if (version == null) {
 			version = tryInvokeString(plugin, "getPluginVersion");
@@ -244,13 +278,105 @@ public final class StatisticsHytalePlugin extends JavaPlugin {
 		if (version == null) {
 			version = tryInvokeString(plugin, "getImplementationVersion");
 		}
-		if (version == null || version.isBlank()) {
-			version = "unknown";
+		if (version == null) {
+			// Some APIs expose a manifest/descriptor object
+			Object manifest = tryInvoke(plugin, "getManifest");
+			if (manifest != null) {
+				version = tryInvokeString(manifest, "getVersion");
+				if (version == null) {
+					version = tryInvokeString(manifest, "getPluginVersion");
+				}
+			}
 		}
-		return new PluginInfo(name, version.trim());
+		if (version == null) {
+			version = resolveVersionFromJarManifest(plugin);
+		}
+		if (version == null || version.isBlank()) {
+			return "unknown";
+		}
+		return version.trim();
 	}
 
-	private static List<PlayerInfo> extractPlayers(Universe universe) {
+	/**
+	 * Reads the plugin {@code manifest.json} from the jar and extracts {@code Version}.
+	 *
+	 * <p>This is the most reliable source because most Hytale mods ship this file.</p>
+	 */
+	private static String resolveVersionFromJarManifest(PluginBase plugin) {
+		try {
+			URL location = plugin.getClass().getProtectionDomain().getCodeSource().getLocation();
+			if (location == null) {
+				return null;
+			}
+			Path jarPath = Paths.get(location.toURI());
+			String key = jarPath.toAbsolutePath().toString();
+
+			return PLUGIN_VERSION_BY_JAR.computeIfAbsent(key, ignored -> {
+				String v = readManifestVersionFromJar(jarPath);
+				if (v != null) {
+					return v;
+				}
+				// Fallback: guess from jar file name (e.g. name-1.2.3.jar)
+				return guessVersionFromJarFileName(jarPath.getFileName().toString());
+			});
+		} catch (Exception ignored) {
+			return null;
+		}
+	}
+
+	private static String readManifestVersionFromJar(Path jarPath) {
+		try {
+			if (jarPath == null || !Files.exists(jarPath)) {
+				return null;
+			}
+			try (java.util.jar.JarFile jar = new java.util.jar.JarFile(jarPath.toFile())) {
+				java.util.jar.JarEntry entry = jar.getJarEntry("manifest.json");
+				if (entry == null) {
+					return null;
+				}
+				try (InputStream in = jar.getInputStream(entry)) {
+					JsonNode root = JSON.readTree(in);
+					if (root == null) {
+						return null;
+					}
+					JsonNode v = root.get("Version");
+					if (v == null || v.isNull()) {
+						v = root.get("version");
+					}
+					if (v == null || v.isNull()) {
+						return null;
+					}
+					String s = v.asText(null);
+					return (s == null || s.isBlank()) ? null : s.trim();
+				}
+			}
+		} catch (Exception ignored) {
+			return null;
+		}
+	}
+
+	private static String guessVersionFromJarFileName(String fileName) {
+		if (fileName == null) {
+			return null;
+		}
+		String name = fileName.trim();
+		if (!name.toLowerCase().endsWith(".jar")) {
+			return null;
+		}
+		name = name.substring(0, name.length() - 4);
+		// naive: last '-' segment that starts with a digit
+		int idx = name.lastIndexOf('-');
+		if (idx < 0 || idx == name.length() - 1) {
+			return null;
+		}
+		String tail = name.substring(idx + 1);
+		if (tail.isEmpty() || !Character.isDigit(tail.charAt(0))) {
+			return null;
+		}
+		return tail;
+	}
+
+	private static List<PlayerInfo> extractPlayers(Universe universe, Map<String, String> joinedByUuid) {
 		if (universe == null) {
 			return List.of();
 		}
@@ -271,13 +397,21 @@ public final class StatisticsHytalePlugin extends JavaPlugin {
 			return List.of();
 		}
 
-		return streamIterable(iterable)
-				.map(StatisticsHytalePlugin::toPlayerInfo)
+		List<PlayerInfo> players = streamIterable(iterable)
+				.map(p -> toPlayerInfo(p, joinedByUuid))
 				.filter(Objects::nonNull)
 				.toList();
+
+		// Keep map bounded: drop entries for players that are no longer online.
+		if (joinedByUuid != null && !joinedByUuid.isEmpty()) {
+			java.util.Set<String> online = players.stream().map(PlayerInfo::uuid).collect(java.util.stream.Collectors.toSet());
+			joinedByUuid.keySet().removeIf(uuid -> !online.contains(uuid));
+		}
+
+		return players;
 	}
 
-	private static PlayerInfo toPlayerInfo(Object player) {
+	private static PlayerInfo toPlayerInfo(Object player, Map<String, String> joinedByUuid) {
 		if (player == null) {
 			return null;
 		}
@@ -299,19 +433,95 @@ public final class StatisticsHytalePlugin extends JavaPlugin {
 		}
 
 		// joined timestamp: best-effort ISO-8601 UTC string
-		String joined = null;
-		Object joinedObj = tryInvoke(player, "getJoined");
-		if (joinedObj == null) {
-			joinedObj = tryInvoke(player, "getJoinedAt");
-		}
-		if (joinedObj != null) {
-			joined = joinedObj.toString();
+		String joined = extractJoinedUtcIso(player);
+		if ((joined == null || joined.isBlank()) && joinedByUuid != null && uuid != null && !uuid.isBlank()) {
+			joined = joinedByUuid.computeIfAbsent(uuid, ignored -> java.time.Instant.now().toString());
 		}
 
 		if (uuid == null || uuid.isBlank() || name == null || name.isBlank()) {
 			return null;
 		}
 		return new PlayerInfo(uuid, name, joined);
+	}
+
+	/**
+	 * Best-effort conversion to an ISO-8601 UTC timestamp (ending with {@code Z}).
+	 *
+	 * <p>We intentionally keep this tolerant because the Hytale API surface may evolve and can return
+	 * different time representations.</p>
+	 */
+	private static String extractJoinedUtcIso(Object player) {
+		Object joinedObj = null;
+		for (String method : List.of(
+				"getJoinedAt",
+				"getJoined",
+				"getJoinTime",
+				"getLoginTime",
+				"getConnectedAt",
+				"getConnectedSince",
+				"getSessionStart",
+				"getSessionStartTime",
+				"getSessionStartMillis",
+				"getFirstJoinAt"
+		)) {
+			joinedObj = tryInvoke(player, method);
+			if (joinedObj != null) {
+				break;
+			}
+		}
+		if (joinedObj == null) {
+			return null;
+		}
+
+		try {
+			// java.time types
+			if (joinedObj instanceof java.time.Instant instant) {
+				return instant.toString();
+			}
+			if (joinedObj instanceof java.time.OffsetDateTime odt) {
+				return odt.toInstant().toString();
+			}
+			if (joinedObj instanceof java.time.ZonedDateTime zdt) {
+				return zdt.toInstant().toString();
+			}
+			if (joinedObj instanceof java.time.LocalDateTime ldt) {
+				return ldt.atOffset(java.time.ZoneOffset.UTC).toInstant().toString();
+			}
+
+			// java.util.Date
+			if (joinedObj instanceof java.util.Date date) {
+				return date.toInstant().toString();
+			}
+
+			// epoch timestamps
+			if (joinedObj instanceof Number n) {
+				long v = n.longValue();
+				// Heuristic: >= 10^12 is likely epoch millis; otherwise treat as epoch seconds.
+				java.time.Instant instant = v >= 1_000_000_000_000L
+						? java.time.Instant.ofEpochMilli(v)
+						: java.time.Instant.ofEpochSecond(v);
+				return instant.toString();
+			}
+
+			// If it's already a string-like ISO timestamp, pass through.
+			String s = joinedObj.toString();
+			if (s == null) {
+				return null;
+			}
+			s = s.trim();
+			if (s.isBlank()) {
+				return null;
+			}
+			// Try parsing as Instant; if it works, normalize to UTC.
+			try {
+				return java.time.Instant.parse(s).toString();
+			} catch (Exception ignored) {
+				// fall through
+			}
+			return null;
+		} catch (Exception ignored) {
+			return null;
+		}
 	}
 
 	private static Object tryInvoke(Object target, String methodName) {
