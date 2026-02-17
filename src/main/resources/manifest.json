@@ -1,7 +1,7 @@
 {
   "Group": "HytaleDE",
   "Name": "Statistics",
-  "Version": "1.0.0",
+  "Version": "1.0.1",
   "Description": "Periodically POSTs the active server state to a remote HTTPS endpoint.",
   "Authors": [
     {
@@ -10,5 +10,5 @@
   ],
   "Website": "https://hytalecommunity.de",
   "Main": "de.hytalede.statistics.hytale.StatisticsHytalePlugin",
-  "ServerVersion": "*"
+  "ServerVersion": "2026.02.17-255364b8e"
 }

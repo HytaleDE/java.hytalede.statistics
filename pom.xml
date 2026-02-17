@@ -6,13 +6,14 @@
 
     <groupId>de.hytalede</groupId>
     <artifactId>hytalede-statistics-plugin</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <name>HytaleDE Statistics Plugin</name>
     <description>Serverside helper that periodically POSTs the active server state to a remote HTTPS endpoint.</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>25</maven.compiler.release>
+        <hytale.server.version>2026.02.17-255364b8e</hytale.server.version>
 
         <jackson.version>2.17.1</jackson.version>
         <junit.version>5.11.0</junit.version>
@@ -98,8 +99,9 @@
                 <dependency>
                     <groupId>com.hypixel.hytale</groupId>
                     <artifactId>HytaleServer-parent</artifactId>
-                    <version>1.0-SNAPSHOT</version>
-                    <scope>provided</scope>
+                    <version>${hytale.server.version}</version>
+                    <scope>system</scope>
+                    <systemPath>${project.basedir}/../@HytaleServer/HytaleServer.jar</systemPath>
                 </dependency>
             </dependencies>
             <build>
