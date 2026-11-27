@@ -9,61 +9,41 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Java (Temurin 25)
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "25"
           cache: maven
 
-      - name: Build
-        run: ./mvnw -B -DskipTests package
+      - name: Check release version
+        id: version
+        run: |
+          version="$(bash ./mvnw -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout -Dstyle.color=never)"
+          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::Release tag $GITHUB_REF_NAME does not match Maven version $version"
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release + upload artifacts
+      - name: Build release artifacts
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          mkdir release-artifacts
+          bash ./mvnw -B -ntp -Pwith-hytale clean verify
+          cp "target/hytalede-statistics-plugin-$VERSION.jar" \
+             "target/hytalede-statistics-plugin-$VERSION-sources.jar" release-artifacts/
+          bash ./mvnw -B -ntp -Pstandalone clean verify
+          cp "target/hytalede-statistics-plugin-standalone-$VERSION.jar" release-artifacts/
+
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: |
-            target/*.jar
-            target/*-sources.jar
-
-name: Release
-
-on:
-  push:
-    tags:
-      - "v*"
-
-permissions:
-  contents: write
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Java 25
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "25"
-          cache: gradle
-
-      - name: Build
-        run: ./gradlew --no-daemon clean build
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            build/libs/*.jar
-            build/distributions/*
+          fail_on_unmatched_files: true
+          files: release-artifacts/*.jar

@@ -4,67 +4,24 @@ on:
   push:
   pull_request:
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Java (Temurin 25)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "25"
-          cache: maven
-
-      - name: Test
-        run: ./mvnw -B test
-
-name: CI
-
-on:
-  push:
-  pull_request:
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Java (Temurin 25)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "25"
-          cache: maven
-
-      - name: Test
-        run: ./mvnw -B test
-
-name: CI
-
-on:
-  push:
-    branches: [ "**" ]
-  pull_request:
+permissions:
+  contents: read
 
 jobs:
   build:
+    name: Build (${{ matrix.profile }})
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        profile: [standalone, with-hytale]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Java 25
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "25"
-          cache: gradle
+          cache: maven
 
-      - name: Build
-        run: ./gradlew --no-daemon clean build
+      - name: Verify
+        run: bash ./mvnw -B -ntp -P${{ matrix.profile }} clean verify
