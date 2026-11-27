@@ -6,14 +6,14 @@
 
     <groupId>de.hytalede</groupId>
     <artifactId>hytalede-statistics-plugin</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <name>HytaleDE Statistics Plugin</name>
     <description>Serverside helper that periodically POSTs the active server state to a remote HTTPS endpoint.</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>25</maven.compiler.release>
-        <hytale.server.version>2026.02.17-255364b8e</hytale.server.version>
+        <hytale.server.version>0.7.7</hytale.server.version>
 
         <jackson.version>2.17.1</jackson.version>
         <junit.version>5.11.0</junit.version>
@@ -91,17 +91,24 @@
             </build>
         </profile>
 
-        <!-- Optional build that compiles the Hytale plugin classes if the Hytale server API is installed locally. -->
+        <!-- Build the Hytale plugin against the official server artifact. -->
         <profile>
             <id>with-hytale</id>
+            <repositories>
+                <repository>
+                    <id>hytale-release</id>
+                    <url>https://maven.hytale.com/release</url>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
             <dependencies>
-                <!-- Hytale server API (provided by the server runtime). Must be available in the local Maven repo. -->
                 <dependency>
                     <groupId>com.hypixel.hytale</groupId>
-                    <artifactId>HytaleServer-parent</artifactId>
+                    <artifactId>Server</artifactId>
                     <version>${hytale.server.version}</version>
-                    <scope>system</scope>
-                    <systemPath>${project.basedir}/../@HytaleServer/HytaleServer.jar</systemPath>
+                    <scope>provided</scope>
                 </dependency>
             </dependencies>
             <build>
